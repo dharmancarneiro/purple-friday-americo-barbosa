@@ -19,7 +19,7 @@ export default function Nav() {
       {ITENS.map(({ href, rotulo, Icone }) => (
         <Link key={href} href={href} aria-current={atual === href ? 'page' : undefined}>
           <Icone aria-hidden="true" />
-          {rotulo}
+          <span>{rotulo}</span>
         </Link>
       ))}
     </nav>

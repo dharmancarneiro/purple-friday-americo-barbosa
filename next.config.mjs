@@ -30,6 +30,7 @@ const nextConfig = {
   // Há outro package-lock.json em C:\Users\juanc; fixa a raiz neste projeto.
   outputFileTracingRoot: import.meta.dirname,
   poweredByHeader: false,
+  devIndicators: false,
   async headers() {
     return [{ source: '/:path*', headers }];
   },

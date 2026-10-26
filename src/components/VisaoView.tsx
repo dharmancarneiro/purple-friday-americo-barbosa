@@ -18,7 +18,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import Alertas from '@/components/Alertas';
 import Chart from '@/components/Chart';
 import FiltroPeriodo from '@/components/FiltroPeriodo';
 import Kpi from '@/components/Kpi';
@@ -39,7 +38,6 @@ import {
 } from '@/lib/coorte';
 import type { AnuncioDia, AnuncioInfo, CoorteDia, Disparo, Fontes } from '@/lib/data';
 import { div, fBrl, fBrl0, fDia, fInt, fPct, pct } from '@/lib/format';
-import { gerarAlertas } from '@/lib/insights';
 import type { Delta } from '@/components/Kpi';
 import { addDias, juntar, metricas, somar } from '@/lib/trafego';
 
@@ -84,7 +82,6 @@ export default function VisaoView({ info, dias, coorte, lives, listas, semDadosN
   const adsPub = useMemo(() => adsDoPublico(todasAds, publico), [todasAds, publico]);
   const cooPub = useMemo(() => coorteDoPublico(coorte, publico), [coorte, publico]);
 
-  const alertas = useMemo(() => gerarAlertas({ ads: adsPub, coorte: cooPub, max, listas, publico }), [adsPub, cooPub, max, listas, publico]);
 
   if (!min) return <p className="nota">Ainda não há dados.</p>;
 
@@ -188,13 +185,7 @@ export default function VisaoView({ info, dias, coorte, lives, listas, semDadosN
         ))}
       </div>
 
-      <section className="secao" style={{ marginTop: 0 }}>
-        <p className="rotulo">O que olhar agora</p>
-        <Alertas alertas={alertas} />
-        <p className="nota">Leitura automática dos últimos 3 dias contra os 3 dias anteriores, para o público escolhido abaixo.</p>
-      </section>
-
-      <div className="filtros-barra" style={{ marginTop: 22 }}>
+      <div className="filtros-barra">
         <PublicoTabs valor={publico} onChange={setPublico} />
         <FiltroPeriodo
           min={min}
@@ -242,10 +233,6 @@ export default function VisaoView({ info, dias, coorte, lives, listas, semDadosN
             detalhe={`${fInt(total.cadastros)} cadastros, todas as fontes`}
           />
         </div>
-        <p className="nota">
-          CPL do Meta = investimento ÷ leads que o Meta contou. CPL real = investimento ÷ cadastros que o UTM atribui ao
-          pago. CPL geral = investimento ÷ todos os cadastros (pago, API oficial, link do grupo, orgânico e sem UTM).
-        </p>
       </section>
 
       <section className="secao">
@@ -270,10 +257,6 @@ export default function VisaoView({ info, dias, coorte, lives, listas, semDadosN
             </div>
           ))}
         </div>
-        <p className="nota">
-          A fonte vem do UTM do cadastro. Quem entrou no grupo sem passar pelo formulário não é cadastro e não entra nesta
-          conta. Passe o mouse sobre um cartão para ver o que a fonte significa.
-        </p>
       </section>
 
       <section className="secao">
@@ -354,9 +337,6 @@ export default function VisaoView({ info, dias, coorte, lives, listas, semDadosN
           </div>
           <div className="card">
             <h2>Funil do tráfego pago</h2>
-            <p className="nota" style={{ marginTop: 0, marginBottom: 18 }}>
-              Cada barra mostra quantos continuaram em relação à etapa de cima.
-            </p>
             {funil.map((l) => (
               <div className="funil-linha" key={l.n}>
                 <div className="topo-l">
