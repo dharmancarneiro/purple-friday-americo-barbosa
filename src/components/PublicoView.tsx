@@ -21,7 +21,8 @@ import {
   type FonteChave,
   type SomaCoorte,
 } from '@/lib/coorte';
-import type { CoorteDia, Publico } from '@/lib/data';
+import UtmQuadro from '@/components/UtmQuadro';
+import type { CoorteDia, Publico, UtmDia } from '@/lib/data';
 import { fInt, fPct, pct } from '@/lib/format';
 
 type LinhaFonte = SomaCoorte & { fonte: FonteChave; total: number };
@@ -40,7 +41,19 @@ const colunasPar = <T extends Par>(chave: string, titulo: string, nome: (l: T) =
   },
 ];
 
-export default function PublicoView({ p, coorte, semDadosNovos }: { p: Publico; coorte: CoorteDia[]; semDadosNovos: boolean }) {
+export default function PublicoView({
+  p,
+  coorte,
+  utms,
+  semUtms,
+  semDadosNovos,
+}: {
+  p: Publico;
+  coorte: CoorteDia[];
+  utms: UtmDia[];
+  semUtms: boolean;
+  semDadosNovos: boolean;
+}) {
   const { min, max } = useMemo(() => faixa(coorte), [coorte]);
   const [de, setDe] = useState(min);
   const [ate, setAte] = useState(max);
@@ -129,6 +142,30 @@ export default function PublicoView({ p, coorte, semDadosNovos }: { p: Publico; 
           <DataTable linhas={linhas} colunas={colunasFonte} id={(l) => l.fonte} ordemInicial={{ chave: 'cadastros', dir: 'desc' }} />
         </div>
         <p className="nota">Passe o mouse sobre o nome da fonte para ver o que ela significa.</p>
+      </section>
+
+      <section className="secao">
+        <p className="rotulo">UTMs dos cadastros</p>
+        {semUtms ? (
+          <div className="alerta atencao" role="status">
+            <Info />
+            <div>
+              <strong>Falta atualizar o banco</strong>
+              <p>
+                A migration <code>20261027000200_dash_pf_utms.sql</code> ainda não foi aplicada. Sem ela, o quadro de UTMs fica
+                vazio.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <UtmQuadro utms={utms} publico={publico} de={de} ate={ate} />
+            <p className="nota">
+              Vale o período e o público escolhidos acima, pelo dia do cadastro. Conta a UTM do primeiro toque de cada pessoa.
+              Nos cadastros pelo convite de WhatsApp, o conteúdo é o nome da lista que recebeu o convite.
+            </p>
+          </>
+        )}
       </section>
 
       <section className="secao">

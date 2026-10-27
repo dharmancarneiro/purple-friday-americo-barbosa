@@ -4,7 +4,7 @@ import { getDash } from '@/lib/data';
 export const metadata = { title: 'Público · Purple Friday' };
 
 export default async function Publico() {
-  const { publico, coorte_dia, faltando_migration } = await getDash();
+  const { publico, coorte_dia, faltando_migration, utms, faltando_utms } = await getDash();
 
   return (
     <>
@@ -17,7 +17,7 @@ export default async function Publico() {
           </p>
         </div>
       </div>
-      <PublicoView p={publico} coorte={coorte_dia} semDadosNovos={faltando_migration} />
+      <PublicoView p={publico} coorte={coorte_dia} utms={utms ?? []} semUtms={faltando_utms} semDadosNovos={faltando_migration} />
     </>
   );
 }

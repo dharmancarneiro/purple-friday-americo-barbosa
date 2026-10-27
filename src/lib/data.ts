@@ -139,6 +139,20 @@ export type CoorteDia = {
   sairam: number;
 };
 
+/** Cadastros por dia, público e combinação de UTM de primeiro toque. "(vazio)" quando a UTM não veio. */
+export type UtmDia = {
+  dia: string;
+  publico: 'aluno' | 'geral';
+  fonte: Fonte;
+  origem: string;
+  midia: string;
+  campanha: string;
+  conteudo: string;
+  termo: string;
+  cadastros: number;
+  entradas: number;
+};
+
 export type DisparoDia = {
   regua_dia: { dia: string; publico: 'aluno' | 'geral'; mensagens: number; pessoas: number; erros: number }[];
   recuperados_dia: { dia: string; publico: 'aluno' | 'geral'; pessoas: number }[];
@@ -190,6 +204,10 @@ export type Dash = {
   /** true quando as funções de disparo ainda não existem no banco (migration 20261026000100). */
   faltando_disparos: boolean;
   coorte_dia: CoorteDia[];
+  /** Ausente em snapshots antigos. */
+  utms?: UtmDia[];
+  /** true quando dash_pf_utms ainda não existe no banco (migration 20261027000200). */
+  faltando_utms: boolean;
   disparo_dia: DisparoDia;
   /** true quando alguma função nova ainda não existe no banco (migration não aplicada). */
   faltando_migration: boolean;
@@ -209,7 +227,7 @@ export const getDash = cache(async (): Promise<Dash> => {
   }
 
   const supabase = await createClient();
-  const [resumo, diario, anunciosInfo, anunciosDia, publico, disparo, fontes, coorteDia, disparoDia, disparosFn, conferenciaFn] = await Promise.all([
+  const [resumo, diario, anunciosInfo, anunciosDia, publico, disparo, fontes, coorteDia, disparoDia, disparosFn, conferenciaFn, utmsFn] = await Promise.all([
     supabase.rpc('dash_pf_resumo'),
     supabase.rpc('dash_pf_diario'),
     supabase.rpc('dash_pf_anuncios_info'),
@@ -221,12 +239,13 @@ export const getDash = cache(async (): Promise<Dash> => {
     supabase.rpc('dash_pf_disparo_dia'),
     supabase.rpc('dash_pf_disparos'),
     supabase.rpc('dash_pf_conferencia_disparo'),
+    supabase.rpc('dash_pf_utms'),
   ]);
 
   // Função ainda não criada (migration 20261026 pendente): a tela avisa em vez de quebrar.
   const naoExiste = (e: { code?: string } | null) => e?.code === 'PGRST202' || e?.code === '42883';
 
-  const falha = [resumo, diario, anunciosInfo, anunciosDia, publico, disparo, fontes, ...[coorteDia, disparoDia, disparosFn, conferenciaFn].filter((r) => !naoExiste(r.error))].find((r) => r.error);
+  const falha = [resumo, diario, anunciosInfo, anunciosDia, publico, disparo, fontes, ...[coorteDia, disparoDia, disparosFn, conferenciaFn, utmsFn].filter((r) => !naoExiste(r.error))].find((r) => r.error);
   if (falha?.error) {
     // 42501 = o e-mail não está liberado em americo_pf_dash_acesso
     if (falha.error.code === '42501') redirect('/login?erro=acesso');
@@ -244,6 +263,8 @@ export const getDash = cache(async (): Promise<Dash> => {
     coorte_dia: coorteDia.error ? [] : coorteDia.data,
     disparo_dia: disparoDia.error ? { regua_dia: [], recuperados_dia: [] } : disparoDia.data,
     faltando_migration: naoExiste(coorteDia.error) || naoExiste(disparoDia.error),
+    utms: utmsFn.error ? [] : utmsFn.data,
+    faltando_utms: naoExiste(utmsFn.error),
     disparos: disparosFn.error ? { por_dia: [], por_disparo: [], funil_convite: [], por_provedor: [] } : disparosFn.data,
     conferencia: conferenciaFn.error ? [] : conferenciaFn.data,
     faltando_disparos: naoExiste(disparosFn.error) || naoExiste(conferenciaFn.error),
