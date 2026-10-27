@@ -22,6 +22,46 @@ const grupoPublico = (g: string): 'aluno' | 'geral' | null => (g === 'convite_al
 const ROTULO_GRUPO: Record<string, string> = { convite_aluno: 'Convite · Alunos', convite_nao_aluno: 'Convite · Não alunos', regua: 'Régua de mensagens' };
 const soma = <T,>(ls: T[], f: (l: T) => number) => ls.reduce((s, l) => s + f(l), 0);
 
+const ROTULO_PROVEDOR: Record<string, string> = { datacrazy: 'DataCrazy', manychat: 'ManyChat', outro: 'Outros' };
+type LinhaProvedor = { provedor: string; envios: number; pessoas: number; confirmaram: number; cadastros: number; entraram: number };
+type LinhaProvedorDia = LinhaProvedor & { dia: string };
+
+/** Colunas comuns às duas tabelas do bloco por provedor. */
+function colunasProvedor<T extends LinhaProvedor>(): Coluna<T>[] {
+  const somaCol = (f: (l: LinhaProvedor) => number) => (ls: T[]) => fInt(soma(ls, f));
+  return [
+    { chave: 'envios', titulo: 'Convites enviados', dica: 'Mensagens enviadas. A mesma pessoa pode receber mais de uma.', valor: (l) => l.envios, render: (l) => <strong>{fInt(l.envios)}</strong>, total: somaCol((l) => l.envios) },
+    { chave: 'pessoas', titulo: 'Pessoas alcançadas', dica: 'Pessoas diferentes que receberam, contadas por dia de disparo.', valor: (l) => l.pessoas, render: (l) => fInt(l.pessoas), total: somaCol((l) => l.pessoas) },
+    { chave: 'confirmaram', titulo: 'Confirmaram', dica: 'Responderam confirmando, ligadas ao último convite recebido nas 72 h antes da resposta.', valor: (l) => l.confirmaram, render: (l) => fInt(l.confirmaram), total: somaCol((l) => l.confirmaram) },
+    {
+      chave: 'pctConf',
+      titulo: '% confirmou',
+      dica: 'Confirmaram ÷ pessoas alcançadas',
+      valor: (l) => pct(l.confirmaram, l.pessoas),
+      render: (l) => fPct(pct(l.confirmaram, l.pessoas), 1),
+      total: (ls) => fPct(pct(soma(ls, (l) => l.confirmaram), soma(ls, (l) => l.pessoas)), 1),
+    },
+    { chave: 'cadastros', titulo: 'Cadastraram', dica: 'Cadastros com origem WhatsApp (disparo_api), ligados ao último convite recebido nas 72 h antes do cadastro.', valor: (l) => l.cadastros, render: (l) => <strong>{fInt(l.cadastros)}</strong>, total: somaCol((l) => l.cadastros) },
+    {
+      chave: 'pctCad',
+      titulo: '% cadastrou',
+      dica: 'Cadastraram ÷ pessoas alcançadas',
+      valor: (l) => pct(l.cadastros, l.pessoas),
+      render: (l) => fPct(pct(l.cadastros, l.pessoas), 1),
+      total: (ls) => fPct(pct(soma(ls, (l) => l.cadastros), soma(ls, (l) => l.pessoas)), 1),
+    },
+    { chave: 'entraram', titulo: 'Entraram no grupo', valor: (l) => l.entraram, render: (l) => fInt(l.entraram), total: somaCol((l) => l.entraram) },
+    {
+      chave: 'pctGrupo',
+      titulo: 'Cadastro → grupo',
+      dica: 'Dos que cadastraram, quantos entraram no grupo. Verde: 85% ou mais. Amarelo: 70% a 85%. Vermelho: abaixo de 70%.',
+      valor: (l) => pct(l.entraram, l.cadastros),
+      render: (l) => <Taxa v={pct(l.entraram, l.cadastros)} bom={85} medio={70} />,
+      total: (ls) => fPct(pct(soma(ls, (l) => l.entraram), soma(ls, (l) => l.cadastros))),
+    },
+  ];
+}
+
 type Props = {
   d: Disparo;
   dia: DisparoDia;
@@ -90,6 +130,50 @@ export default function DisparoView({ d, dia, coorte, disparos, conferencia, sem
     [disparos.por_disparo, publico],
   );
 
+  const provRows = useMemo(
+    () => noIntervalo(disparos.por_provedor ?? [], de, ate).filter((r) => passaPublico(grupoPublico(r.grupo) ?? 'geral', publico)),
+    [disparos.por_provedor, de, ate, publico],
+  );
+
+  // Totais do período por provedor, e a mesma conta dia a dia (dia = dia do disparo).
+  const provedores = useMemo(() => {
+    const m = new Map<string, LinhaProvedor>();
+    for (const r of provRows) {
+      const t = m.get(r.provedor) ?? { provedor: r.provedor, envios: 0, pessoas: 0, confirmaram: 0, cadastros: 0, entraram: 0 };
+      t.envios += r.envios;
+      t.pessoas += r.pessoas;
+      t.confirmaram += r.confirmaram;
+      t.cadastros += r.cadastros;
+      t.entraram += r.entraram;
+      m.set(r.provedor, t);
+    }
+    return [...m.values()].sort((a, b) => b.envios - a.envios);
+  }, [provRows]);
+
+  const provPorDia = useMemo(() => {
+    const m = new Map<string, LinhaProvedorDia>();
+    for (const r of provRows) {
+      const k = `${r.dia}|${r.provedor}`;
+      const t = m.get(k) ?? { dia: r.dia, provedor: r.provedor, envios: 0, pessoas: 0, confirmaram: 0, cadastros: 0, entraram: 0 };
+      t.envios += r.envios;
+      t.pessoas += r.pessoas;
+      t.confirmaram += r.confirmaram;
+      t.cadastros += r.cadastros;
+      t.entraram += r.entraram;
+      m.set(k, t);
+    }
+    return [...m.values()];
+  }, [provRows]);
+
+  const provDiasGrafico = useMemo(() => {
+    const dias = [...new Set(provPorDia.map((r) => r.dia))].sort();
+    const taxa = (dia: string, prov: string) => {
+      const r = provPorDia.find((x) => x.dia === dia && x.provedor === prov);
+      return r && r.pessoas > 0 ? (r.cadastros / r.pessoas) * 100 : null;
+    };
+    return dias.map((dia) => ({ dia: fDia(dia), datacrazy: taxa(dia, 'datacrazy'), manychat: taxa(dia, 'manychat') }));
+  }, [provPorDia]);
+
   const regua = d.regua.map((r) => ({ etapa: r.codigo, recuperado: r.pct_recuperado == null ? null : Number(r.pct_recuperado) }));
 
   const tot = {
@@ -115,6 +199,17 @@ export default function DisparoView({ d, dia, coorte, disparos, conferencia, sem
     { chave: 'recuperados', titulo: 'Entraram depois da mensagem', dica: 'Pessoas que entraram no grupo neste dia depois de receber uma mensagem da régua', valor: (s) => s.recuperados, render: (s) => fInt(s.recuperados), total: () => fInt(tot.recuperados) },
     { chave: 'cadApi', titulo: 'Cadastros pelo convite', dica: 'Cadastros de quem recebeu o convite por WhatsApp, no dia do cadastro', valor: (s) => s.cadApi, render: (s) => fInt(s.cadApi), total: () => fInt(tot.cadApi) },
     { chave: 'entApi', titulo: 'Desses, entraram no grupo', valor: (s) => s.entApi, render: (s) => fInt(s.entApi), total: () => fInt(tot.entApi) },
+  ];
+
+  const colunasProv: Coluna<LinhaProvedor>[] = [
+    { chave: 'provedor', titulo: 'Provedor', esquerda: true, valor: (l) => ROTULO_PROVEDOR[l.provedor] ?? l.provedor, render: (l) => <strong>{ROTULO_PROVEDOR[l.provedor] ?? l.provedor}</strong>, total: () => 'Total' },
+    ...colunasProvedor<LinhaProvedor>(),
+  ];
+
+  const colunasProvDia: Coluna<LinhaProvedorDia>[] = [
+    { chave: 'dia', titulo: 'Dia do disparo', esquerda: true, valor: (l) => l.dia, render: (l) => fDia(l.dia), total: () => 'Total' },
+    { chave: 'provedor', titulo: 'Provedor', esquerda: true, valor: (l) => ROTULO_PROVEDOR[l.provedor] ?? l.provedor, render: (l) => ROTULO_PROVEDOR[l.provedor] ?? l.provedor },
+    ...colunasProvedor<LinhaProvedorDia>(),
   ];
 
   const colunasDisparo: Coluna<PorDisparo>[] = [
@@ -326,6 +421,48 @@ export default function DisparoView({ d, dia, coorte, disparos, conferencia, sem
         <p className="nota">
           Cada pessoa é ligada pelo telefone. “Pelo convite” conta quem se cadastrou com origem WhatsApp (disparo_api). Quem se
           cadastrou por outro caminho depois do convite (anúncio, link do grupo) aparece em “qualquer fonte”.
+        </p>
+      </section>
+
+      <section className="secao">
+        <p className="rotulo">Por provedor de disparo</p>
+        {provedores.length === 0 ? (
+          <p className="nota">Nenhum convite enviado no período e público escolhidos.</p>
+        ) : (
+          <>
+            <div className="card">
+              <h2>Convite → confirmação → cadastro → grupo</h2>
+              <DataTable linhas={provedores} colunas={colunasProv} id={(l) => l.provedor} ordemInicial={{ chave: 'envios', dir: 'desc' }} />
+            </div>
+            <div className="grade c2" style={{ marginTop: 14 }}>
+              <div className="card">
+                <h2>% que cadastrou, por dia do disparo</h2>
+                <Chart
+                  titulo="Percentual de pessoas alcançadas que se cadastraram, por provedor e por dia do disparo"
+                  tipo="barra"
+                  dados={provDiasGrafico}
+                  x="dia"
+                  formato="pct"
+                  series={[
+                    { key: 'datacrazy', nome: 'DataCrazy', cor: 'var(--series-1)' },
+                    { key: 'manychat', nome: 'ManyChat', cor: 'var(--series-2)' },
+                  ]}
+                />
+              </div>
+              <div className="card">
+                <h2>Dia a dia</h2>
+                <DataTable linhas={provPorDia} colunas={colunasProvDia} id={(l) => `${l.dia}|${l.provedor}`} ordemInicial={{ chave: 'dia', dir: 'desc' }} />
+              </div>
+            </div>
+          </>
+        )}
+        <p className="nota">
+          DataCrazy é a conexão 3070 (o DataCrazy tem outras conexões, mas só esta enviou convites até agora) e ManyChat é a
+          conexão do ManyChat. O dia é o <b>dia do disparo</b>, não o do cadastro.
+          Estimativa: cada confirmação e cada cadastro é ligado ao último convite recebido nas 72 horas anteriores, então
+          quem recebeu por dois provedores conta só no último. Disparos recentes ainda estão amadurecendo: o percentual de
+          hoje tende a subir nos próximos dias. Cada onda vai para um público diferente, e quem já ignorou convites antes
+          responde menos: compare ondas parecidas, não a primeira onda com um reenvio.
         </p>
       </section>
 

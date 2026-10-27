@@ -163,6 +163,17 @@ export type Disparos = {
     cadastrou_pelo_convite: number;
     entrou_no_grupo: number;
   }[];
+  /** Por dia do disparo, grupo e provedor (conexão do envio). Ausente em snapshots antigos. */
+  por_provedor?: {
+    dia: string;
+    grupo: 'convite_aluno' | 'convite_nao_aluno';
+    provedor: 'datacrazy' | 'manychat' | 'outro';
+    envios: number;
+    pessoas: number;
+    confirmaram: number;
+    cadastros: number;
+    entraram: number;
+  }[];
 };
 
 export type ConferenciaDia = {
@@ -233,7 +244,7 @@ export const getDash = cache(async (): Promise<Dash> => {
     coorte_dia: coorteDia.error ? [] : coorteDia.data,
     disparo_dia: disparoDia.error ? { regua_dia: [], recuperados_dia: [] } : disparoDia.data,
     faltando_migration: naoExiste(coorteDia.error) || naoExiste(disparoDia.error),
-    disparos: disparosFn.error ? { por_dia: [], por_disparo: [], funil_convite: [] } : disparosFn.data,
+    disparos: disparosFn.error ? { por_dia: [], por_disparo: [], funil_convite: [], por_provedor: [] } : disparosFn.data,
     conferencia: conferenciaFn.error ? [] : conferenciaFn.data,
     faltando_disparos: naoExiste(disparosFn.error) || naoExiste(conferenciaFn.error),
   };
