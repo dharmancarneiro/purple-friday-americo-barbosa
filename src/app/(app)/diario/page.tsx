@@ -1,10 +1,11 @@
+import AvisoInstavel from '@/components/AvisoInstavel';
 import DiarioView from '@/components/DiarioView';
 import { getDash } from '@/lib/data';
 
 export const metadata = { title: 'Dia a dia · Purple Friday' };
 
 export default async function Diario() {
-  const { diario, anuncios_info, anuncios_dia, coorte_dia, faltando_migration } = await getDash();
+  const { diario, anuncios_info, anuncios_dia, coorte_dia, faltando_migration, instavel } = await getDash();
 
   return (
     <>
@@ -17,6 +18,7 @@ export default async function Diario() {
           </p>
         </div>
       </div>
+      {instavel && <AvisoInstavel />}
       <DiarioView
         diario={diario}
         info={anuncios_info}

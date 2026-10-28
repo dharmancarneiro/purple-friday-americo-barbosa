@@ -1,3 +1,4 @@
+import AvisoInstavel from '@/components/AvisoInstavel';
 import VisaoView from '@/components/VisaoView';
 import { getDash } from '@/lib/data';
 import { fDataHora } from '@/lib/format';
@@ -5,7 +6,7 @@ import { fDataHora } from '@/lib/format';
 export const metadata = { title: 'Visão geral · Purple Friday' };
 
 export default async function VisaoGeral() {
-  const { resumo, anuncios_info, anuncios_dia, coorte_dia, fontes, disparo, faltando_migration } = await getDash();
+  const { resumo, anuncios_info, anuncios_dia, coorte_dia, fontes, disparo, faltando_migration, instavel } = await getDash();
 
   return (
     <>
@@ -17,6 +18,7 @@ export default async function VisaoGeral() {
           </p>
         </div>
       </div>
+      {instavel && <AvisoInstavel />}
       <VisaoView
         info={anuncios_info}
         dias={anuncios_dia}

@@ -211,6 +211,8 @@ export type Dash = {
   disparo_dia: DisparoDia;
   /** true quando alguma função nova ainda não existe no banco (migration não aplicada). */
   faltando_migration: boolean;
+  /** true quando alguma função opcional falhou (ex.: timeout do banco) e seus blocos vieram vazios. Ausente em snapshots antigos. */
+  instavel?: boolean;
   fontes: Fontes;
   resumo: Resumo;
   diario: Dia[];
@@ -245,12 +247,15 @@ export const getDash = cache(async (): Promise<Dash> => {
   // Função ainda não criada (migration 20261026 pendente): a tela avisa em vez de quebrar.
   const naoExiste = (e: { code?: string } | null) => e?.code === 'PGRST202' || e?.code === '42883';
 
-  const falha = [resumo, diario, anunciosInfo, anunciosDia, publico, disparo, fontes, ...[coorteDia, disparoDia, disparosFn, conferenciaFn, utmsFn].filter((r) => !naoExiste(r.error))].find((r) => r.error);
-  if (falha?.error) {
-    // 42501 = o e-mail não está liberado em americo_pf_dash_acesso
-    if (falha.error.code === '42501') redirect('/login?erro=acesso');
-    throw new Error('Falha ao carregar os dados do dashboard.');
-  }
+  // As funções opcionais (as mais pesadas) não derrubam a página: se falharem, o bloco vem vazio e a tela avisa.
+  const opcionais = [coorteDia, disparoDia, disparosFn, conferenciaFn, utmsFn];
+
+  const falha = [resumo, diario, anunciosInfo, anunciosDia, publico, disparo, fontes].find((r) => r.error);
+  // 42501 = o e-mail não está liberado em americo_pf_dash_acesso
+  if ([...(falha ? [falha] : []), ...opcionais].some((r) => r.error?.code === '42501')) redirect('/login?erro=acesso');
+  if (falha?.error) throw new Error('Falha ao carregar os dados do dashboard.');
+
+  const instavel = opcionais.some((r) => r.error && !naoExiste(r.error));
 
   return {
     resumo: resumo.data,
@@ -268,5 +273,6 @@ export const getDash = cache(async (): Promise<Dash> => {
     disparos: disparosFn.error ? { por_dia: [], por_disparo: [], funil_convite: [], por_provedor: [] } : disparosFn.data,
     conferencia: conferenciaFn.error ? [] : conferenciaFn.data,
     faltando_disparos: naoExiste(disparosFn.error) || naoExiste(conferenciaFn.error),
+    instavel,
   };
 });

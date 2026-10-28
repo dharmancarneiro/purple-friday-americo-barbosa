@@ -1,10 +1,11 @@
+import AvisoInstavel from '@/components/AvisoInstavel';
 import DisparoView from '@/components/DisparoView';
 import { getDash } from '@/lib/data';
 
 export const metadata = { title: 'Disparo e régua · Purple Friday' };
 
 export default async function Disparo() {
-  const { disparo, disparo_dia, coorte_dia, disparos, conferencia, faltando_migration, faltando_disparos } = await getDash();
+  const { disparo, disparo_dia, coorte_dia, disparos, conferencia, faltando_migration, faltando_disparos, instavel } = await getDash();
 
   return (
     <>
@@ -17,6 +18,7 @@ export default async function Disparo() {
           </p>
         </div>
       </div>
+      {instavel && <AvisoInstavel />}
       <DisparoView
         d={disparo}
         dia={disparo_dia}
